@@ -114,6 +114,32 @@ async function buildTaskCard(task, checkin, user, today) {
   const card = document.createElement('section')
   card.className = 'card task-card'
 
+  async function captureAndUpload() {
+    const blob = await openCamera()
+    if (!blob) return null
+
+    const path = `${user.id}/${today}/${task.key}.jpg`
+    const { error: uploadError } = await supabase.storage
+      .from('checkin-photos')
+      .upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
+    if (uploadError) {
+      alert('No se ha podido subir la foto: ' + uploadError.message)
+      return null
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('checkins')
+      .insert({ user_id: user.id, task: task.key, photo_path: path })
+      .select()
+      .single()
+    if (insertError) {
+      alert('No se ha podido guardar: ' + insertError.message)
+      return null
+    }
+
+    return inserted
+  }
+
   if (checkin) {
     card.classList.add('task-done-card')
 
@@ -130,11 +156,26 @@ async function buildTaskCard(task, checkin, user, today) {
         <span class="task-done">✓ ${time}</span>
       </div>
       ${photoUrl ? `<img class="task-photo" src="${photoUrl}" alt="${task.label}" />` : ''}
-      <button class="button ghost retry-btn">Repetir foto</button>
+      <div class="task-actions">
+        <button class="button ghost retry-btn">↺ Repetir foto</button>
+        <button class="button ghost delete-btn">🗑 Eliminar</button>
+      </div>
     `
 
     card.querySelector('.retry-btn').addEventListener('click', async () => {
-      if (!confirm('¿Borrar esta foto y repetirla?')) return
+      if (!confirm('¿Repetir esta foto? Se borrará la actual y se abrirá la cámara.')) return
+      const { error } = await supabase.from('checkins').delete().eq('id', checkin.id)
+      if (error) {
+        alert('No se ha podido borrar: ' + error.message)
+        return
+      }
+      const inserted = await captureAndUpload()
+      const freshCard = await buildTaskCard(task, inserted, user, today)
+      card.replaceWith(freshCard)
+    })
+
+    card.querySelector('.delete-btn').addEventListener('click', async () => {
+      if (!confirm('¿Eliminar esta foto? La tarea volverá a quedar pendiente.')) return
       const { error } = await supabase.from('checkins').delete().eq('id', checkin.id)
       if (error) {
         alert('No se ha podido borrar: ' + error.message)
@@ -150,38 +191,11 @@ async function buildTaskCard(task, checkin, user, today) {
         <span class="task-pending">🕒 Pendiente</span>
       </div>
       <button class="button primary camera-btn">Abrir cámara</button>
-      <p class="msg error task-error" hidden></p>
     `
 
     card.querySelector('.camera-btn').addEventListener('click', async () => {
-      const blob = await openCamera()
-      if (!blob) return
-
-      const errEl = card.querySelector('.task-error')
-      const path = `${user.id}/${today}/${task.key}.jpg`
-
-      const { error: uploadError } = await supabase.storage
-        .from('checkin-photos')
-        .upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
-
-      if (uploadError) {
-        errEl.hidden = false
-        errEl.textContent = 'No se ha podido subir la foto: ' + uploadError.message
-        return
-      }
-
-      const { data: inserted, error: insertError } = await supabase
-        .from('checkins')
-        .insert({ user_id: user.id, task: task.key, photo_path: path })
-        .select()
-        .single()
-
-      if (insertError) {
-        errEl.hidden = false
-        errEl.textContent = 'No se ha podido guardar: ' + insertError.message
-        return
-      }
-
+      const inserted = await captureAndUpload()
+      if (!inserted) return
       const freshCard = await buildTaskCard(task, inserted, user, today)
       card.replaceWith(freshCard)
     })

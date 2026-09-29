@@ -261,6 +261,17 @@ select:focus {
   display: block;
 }
 
+.task-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.task-actions .button.ghost {
+  width: auto;
+  flex: 1;
+  margin-top: 0;
+}
+
 /* ---------- Camara en directo ---------- */
 .camera-overlay {
   position: fixed;
