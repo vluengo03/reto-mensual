@@ -7,9 +7,9 @@ const TASK_INFO = {
   dinner: { emoji: '🌙', label: 'Cena' },
 }
 
-export async function renderCalendar(container, user) {
+export async function renderCalendar(container, user, initialMonth) {
   const today = toMadridDate()
-  let viewMonth = today.slice(0, 7) // 'YYYY-MM'
+  let viewMonth = initialMonth || today.slice(0, 7) // 'YYYY-MM'
 
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
