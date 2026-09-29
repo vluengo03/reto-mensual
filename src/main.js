@@ -38,7 +38,11 @@ async function render(session) {
   async function renderCurrentView() {
     const container = document.querySelector('#main-content')
     if (currentView === 'hoy') {
-      await renderToday(container, session.user)
+      await renderToday(container, session.user, () => {
+        currentView = 'perfil'
+        updateActiveTab()
+        renderCurrentView()
+      })
     } else if (currentView === 'calendario') {
       const month = pendingCalendarMonth
       pendingCalendarMonth = null

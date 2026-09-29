@@ -20,6 +20,9 @@ export async function renderProfile(container, user) {
 
   const last = measurements?.[0] ?? {}
   const today = new Date().toISOString().slice(0, 10)
+  const daysSince = last.measured_on ? Math.round((new Date(today) - new Date(last.measured_on)) / 86400000) : null
+  const isStale = daysSince === null || daysSince >= 7
+  const lastText = daysSince === null ? 'ninguna todavía' : daysSince === 0 ? 'hoy' : daysSince === 1 ? 'hace 1 día' : `hace ${daysSince} días`
 
   let avatarUrl = placeholderAvatar()
   if (profile.avatar_path) {
@@ -61,9 +64,10 @@ export async function renderProfile(container, user) {
       </form>
     </section>
 
-    <section class="card">
-      <h2>Medidas de hoy</h2>
-      <p class="muted">Última medida guardada: ${last.measured_on ?? 'ninguna todavía'}</p>
+    <section class="card ${isStale ? 'measurements-stale' : ''}">
+      <h2>Medidas de la semana</h2>
+      <p class="muted">Última medida guardada: ${lastText}</p>
+      ${isStale ? `<p class="reminder-text">📏 Toca actualizarlas esta semana.</p>` : ''}
       <form id="measurements-form">
         <label>Peso (kg)
           <input type="number" name="weight_kg" value="${last.weight_kg ?? ''}" step="0.1" min="30" max="300" />
@@ -74,7 +78,7 @@ export async function renderProfile(container, user) {
         <label>% Músculo
           <input type="number" name="muscle_pct" value="${last.muscle_pct ?? ''}" step="0.1" min="1" max="90" />
         </label>
-        <button type="submit" class="button primary">Guardar medidas de hoy</button>
+        <button type="submit" class="button primary">Guardar medidas</button>
         <p id="measurements-msg" class="msg"></p>
       </form>
     </section>

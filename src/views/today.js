@@ -19,16 +19,23 @@ const TASKS = [
   { key: 'dinner', label: 'Cena', emoji: '🌙' },
 ]
 
-export async function renderToday(container, user) {
+export async function renderToday(container, user, onGoToProfile) {
   container.innerHTML = `<p class="muted">Cargando el día de hoy…</p>`
 
   const today = toMadridDate()
 
-  const [{ data: profiles, error: profilesError }, checkinsAll, { data: todayRowsFull }] = await Promise.all([
-    supabase.from('profiles').select('id, display_name').order('created_at'),
-    fetchAllCheckins(),
-    supabase.from('checkins').select('*').eq('user_id', user.id).eq('day', today),
-  ])
+  const [{ data: profiles, error: profilesError }, checkinsAll, { data: todayRowsFull }, { data: lastMeasurements }] =
+    await Promise.all([
+      supabase.from('profiles').select('id, display_name').order('created_at'),
+      fetchAllCheckins(),
+      supabase.from('checkins').select('*').eq('user_id', user.id).eq('day', today),
+      supabase
+        .from('body_measurements')
+        .select('measured_on')
+        .eq('user_id', user.id)
+        .order('measured_on', { ascending: false })
+        .limit(1),
+    ])
 
   if (profilesError) {
     container.innerHTML = `<p class="msg error">${profilesError.message}</p>`
@@ -39,9 +46,13 @@ export async function renderToday(container, user) {
 
   container.innerHTML = `
     <h2>${formatDate(today)}</h2>
+    ${renderMeasurementReminder(lastMeasurements?.[0], today)}
     ${renderGameHeader(profiles, map, today, user.id)}
     <div id="task-list"></div>
   `
+
+  const reminderBtn = container.querySelector('#measurement-reminder-btn')
+  if (reminderBtn) reminderBtn.addEventListener('click', () => onGoToProfile?.())
 
   const byTaskFull = Object.fromEntries((todayRowsFull ?? []).map((c) => [c.task, c]))
 
@@ -50,6 +61,21 @@ export async function renderToday(container, user) {
     const card = await buildTaskCard(task, byTaskFull[task.key], user, today)
     list.appendChild(card)
   }
+}
+
+function renderMeasurementReminder(last, today) {
+  const daysSince = last ? Math.round((new Date(today) - new Date(last.measured_on)) / 86400000) : null
+  const isStale = daysSince === null || daysSince >= 7
+  if (!isStale) return ''
+
+  const text = daysSince === null ? 'Aún no has registrado tus medidas.' : `Llevas ${daysSince} días sin actualizar tus medidas.`
+
+  return `
+    <div class="reminder-banner">
+      <span>📏 ${text}</span>
+      <button class="button ghost" id="measurement-reminder-btn">Actualizar</button>
+    </div>
+  `
 }
 
 function renderGameHeader(profiles, map, today, myId) {
