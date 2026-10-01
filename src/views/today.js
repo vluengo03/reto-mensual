@@ -56,9 +56,16 @@ export async function renderToday(container, user, onGoToProfile) {
 
   const byTaskFull = Object.fromEntries((todayRowsFull ?? []).map((c) => [c.task, c]))
 
+  const checkinIds = (todayRowsFull ?? []).map((c) => c.id)
+  const { data: reportRows } = checkinIds.length
+    ? await supabase.from('checkin_reports').select('checkin_id').in('checkin_id', checkinIds)
+    : { data: [] }
+  const reportedCheckinIds = new Set((reportRows ?? []).map((r) => r.checkin_id))
+
   const list = container.querySelector('#task-list')
   for (const task of TASKS) {
-    const card = await buildTaskCard(task, byTaskFull[task.key], user, today)
+    const isReported = byTaskFull[task.key] ? reportedCheckinIds.has(byTaskFull[task.key].id) : false
+    const card = await buildTaskCard(task, byTaskFull[task.key], user, today, isReported)
     list.appendChild(card)
   }
 }
@@ -138,7 +145,7 @@ function renderGameHeader(profiles, map, today, myId) {
   `
 }
 
-async function buildTaskCard(task, checkin, user, today) {
+async function buildTaskCard(task, checkin, user, today, isReported) {
   const card = document.createElement('section')
   card.className = 'card task-card'
 
@@ -184,6 +191,7 @@ async function buildTaskCard(task, checkin, user, today) {
         <span class="task-done">✓ ${time}</span>
       </div>
       ${photoUrl ? `<img class="task-photo" src="${photoUrl}" alt="${task.label}" />` : ''}
+      ${isReported ? `<p class="report-notice">🚩 Tu compañero/a ha reportado esta ${task.label.toLowerCase()}.</p>` : ''}
       <div class="task-actions">
         <button class="button ghost retry-btn">↺ Repetir foto</button>
         <button class="button ghost delete-btn">🗑 Eliminar</button>
@@ -198,7 +206,7 @@ async function buildTaskCard(task, checkin, user, today) {
         return
       }
       const inserted = await captureAndUpload()
-      const freshCard = await buildTaskCard(task, inserted, user, today)
+      const freshCard = await buildTaskCard(task, inserted, user, today, false)
       card.replaceWith(freshCard)
     })
 
@@ -209,7 +217,7 @@ async function buildTaskCard(task, checkin, user, today) {
         alert('No se ha podido borrar: ' + error.message)
         return
       }
-      const freshCard = await buildTaskCard(task, null, user, today)
+      const freshCard = await buildTaskCard(task, null, user, today, false)
       card.replaceWith(freshCard)
     })
   } else {
@@ -224,7 +232,7 @@ async function buildTaskCard(task, checkin, user, today) {
     card.querySelector('.camera-btn').addEventListener('click', async () => {
       const inserted = await captureAndUpload()
       if (!inserted) return
-      const freshCard = await buildTaskCard(task, inserted, user, today)
+      const freshCard = await buildTaskCard(task, inserted, user, today, false)
       card.replaceWith(freshCard)
     })
   }

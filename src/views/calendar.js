@@ -108,6 +108,12 @@ export async function renderCalendar(container, user, initialMonth) {
       return
     }
 
+    const checkinIds = rows.map((r) => r.id)
+    const { data: reportRows } = checkinIds.length
+      ? await supabase.from('checkin_reports').select('*').in('checkin_id', checkinIds)
+      : { data: [] }
+    const reportsByCheckin = Object.fromEntries((reportRows ?? []).map((r) => [r.checkin_id, r]))
+
     const byUserTask = {}
     for (const r of rows) byUserTask[`${r.user_id}|${r.task}`] = r
 
@@ -131,13 +137,19 @@ export async function renderCalendar(container, user, initialMonth) {
         taskBtn.type = 'button'
         taskBtn.className = 'day-detail-task'
         if (!hasPhoto) taskBtn.classList.add('day-detail-task-static')
+        const reportRow = row ? reportsByCheckin[row.id] : null
+
         taskBtn.innerHTML = `
           <span>${info.emoji} ${info.label}</span>
-          ${
-            row
-              ? `<span class="task-done">✓ ${formatTime(row.taken_at)}${hasPhoto ? ' <span class="chevron">▾</span>' : ''}</span>`
-              : `<span class="task-pending">✕ No registrado</span>`
-          }
+          <span class="task-status-group">
+            ${
+              row
+                ? `<span class="task-done">✓ ${formatTime(row.taken_at)}${hasPhoto ? ' <span class="chevron">▾</span>' : ''}</span>${
+                    reportRow ? ' <span class="task-reported" title="Reportado">🚩</span>' : ''
+                  }`
+                : `<span class="task-pending">✕ No registrado</span>`
+            }
+          </span>
         `
         detail.appendChild(taskBtn)
 
@@ -163,6 +175,35 @@ export async function renderCalendar(container, user, initialMonth) {
                 photoBox.innerHTML = `<p class="msg error">No se ha podido cargar la foto</p>`
               }
             }
+          })
+        }
+
+        // Solo se puede reportar comida/cena de la OTRA persona
+        const canReport = row && p.id !== user.id && (t === 'lunch' || t === 'dinner')
+        if (canReport) {
+          const reportBtn = document.createElement('button')
+          reportBtn.type = 'button'
+          reportBtn.className = 'button ghost report-btn'
+          reportBtn.textContent = reportRow ? '🚩 Quitar reporte' : '🚩 Reportar esta comida'
+          detail.appendChild(reportBtn)
+
+          reportBtn.addEventListener('click', async () => {
+            if (reportRow) {
+              if (!confirm('¿Quitar el reporte?')) return
+              const { error: delError } = await supabase.from('checkin_reports').delete().eq('id', reportRow.id)
+              if (delError) {
+                alert('No se ha podido quitar: ' + delError.message)
+                return
+              }
+            } else {
+              if (!confirm(`¿Reportar la ${info.label.toLowerCase()} de ${p.display_name}? Podréis hablarlo después.`)) return
+              const { error: insError } = await supabase.from('checkin_reports').insert({ checkin_id: row.id })
+              if (insError) {
+                alert('No se ha podido reportar: ' + insError.message)
+                return
+              }
+            }
+            showDayDetail(dayStr)
           })
         }
       }

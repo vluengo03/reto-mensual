@@ -261,6 +261,30 @@ select:focus {
   display: block;
 }
 
+.report-notice {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: -4px 0 12px;
+}
+
+.task-status-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-reported {
+  font-size: 0.9em;
+}
+
+.report-btn {
+  width: 100%;
+  margin-top: 8px;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
 .task-actions {
   display: flex;
   gap: 10px;
