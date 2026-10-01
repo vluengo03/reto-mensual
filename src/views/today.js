@@ -8,7 +8,7 @@ import {
   computeJointStreakParts,
   hasEverBeenJointComplete,
   computeMoneyOwed,
-  petStage,
+  petProgress,
   toMadridDate,
   addDays,
 } from '../game.js'
@@ -97,7 +97,8 @@ function renderGameHeader(profiles, map, today, myId) {
 
   const { pastStreak, todayComplete, age } = computeJointStreakParts(map, ids, today)
   const everHatched = hasEverBeenJointComplete(map, ids, yesterday)
-  const stage = petStage(age)
+  const progress = petProgress(age)
+  const stage = progress.stage
 
   let petStatus = ''
   if (pastStreak === 0 && !todayComplete) {
@@ -113,8 +114,8 @@ function renderGameHeader(profiles, map, today, myId) {
     }
   } else if (pastStreak === 0 && todayComplete) {
     petStatus = everHatched
-      ? `<p class="pet-born">🎉 Ha nacido un huevo nuevo hoy.</p>`
-      : `<p class="pet-born">🎉 ¡Ha nacido vuestra primera mascota!</p>`
+      ? `<p class="pet-born">🎉 Ha aparecido un huevo nuevo hoy.</p>`
+      : `<p class="pet-born">🎉 ¡Ha aparecido vuestro primer huevo! Si seguís cumpliendo los dos, eclosionará.</p>`
   }
 
   return `
@@ -126,6 +127,7 @@ function renderGameHeader(profiles, map, today, myId) {
           <p class="muted">${age} día${age === 1 ? '' : 's'} juntos</p>
         </div>
       </div>
+      ${renderPetProgressBar(progress)}
       ${petStatus}
       <div class="streak-row">
         <div class="streak-item">🔥 Tú: <strong>${myStreak}</strong></div>
@@ -234,6 +236,23 @@ function formatDate(isoDate) {
   const d = new Date(isoDate + 'T00:00:00')
   const text = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
   return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+function renderPetProgressBar(progress) {
+  if (!progress.next) {
+    return `
+      <div class="pet-progress">
+        <div class="pet-progress-bar"><div class="pet-progress-fill pet-progress-full" style="width:100%"></div></div>
+        <p class="muted pet-progress-label">Etapa máxima alcanzada 🎉</p>
+      </div>
+    `
+  }
+  return `
+    <div class="pet-progress">
+      <div class="pet-progress-bar"><div class="pet-progress-fill" style="width:${progress.progressPct}%"></div></div>
+      <p class="muted pet-progress-label">${progress.daysIntoStage}/${progress.stageLength} días para pasar a ${progress.next.label} ${progress.next.emoji}</p>
+    </div>
+  `
 }
 
 function escapeHtml(str) {

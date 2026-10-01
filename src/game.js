@@ -93,12 +93,33 @@ export function hasEverBeenJointComplete(map, userIds, beforeOrEqualDate) {
   return false
 }
 
+const PET_STAGES = [
+  { key: 'huevo', emoji: '🥚', label: 'Huevo', min: 0, max: 1 },
+  { key: 'cria', emoji: '🐣', label: 'Cría', min: 2, max: 6 },
+  { key: 'joven', emoji: '🦎', label: 'Joven', min: 7, max: 13 },
+  { key: 'adulto', emoji: '🐉', label: 'Adulto', min: 14, max: 29 },
+  { key: 'final', emoji: '🌟', label: 'Forma final', min: 30, max: Infinity },
+]
+
 export function petStage(age) {
-  if (age >= 30) return { key: 'final', emoji: '🌟', label: 'Forma final' }
-  if (age >= 14) return { key: 'adulto', emoji: '🐉', label: 'Adulto' }
-  if (age >= 7) return { key: 'joven', emoji: '🦎', label: 'Joven' }
-  if (age >= 3) return { key: 'cria', emoji: '🐣', label: 'Cría' }
-  return { key: 'huevo', emoji: '🥚', label: 'Huevo' }
+  return PET_STAGES.find((s) => age >= s.min && age <= s.max) ?? PET_STAGES[PET_STAGES.length - 1]
+}
+
+// Progreso dentro de la etapa actual: cuantos dias lleva y cuantos faltan
+// para la siguiente. Sirve para pintar la barra de progreso.
+export function petProgress(age) {
+  const idx = PET_STAGES.findIndex((s) => age >= s.min && age <= s.max)
+  const stage = PET_STAGES[idx]
+  const next = PET_STAGES[idx + 1]
+
+  if (!next) {
+    return { stage, progressPct: 100, daysIntoStage: age - stage.min, stageLength: null, next: null }
+  }
+
+  const stageLength = stage.max - stage.min + 1
+  const daysIntoStage = age - stage.min
+  const progressPct = Math.round((daysIntoStage / stageLength) * 100)
+  return { stage, progressPct, daysIntoStage, stageLength, next }
 }
 
 // Dinero acumulado por un usuario entre dos fechas YA TERMINADAS
